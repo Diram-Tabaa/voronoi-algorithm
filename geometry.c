@@ -13,6 +13,9 @@
 #include <math.h>
 #include <stdio.h>
 
+int point_equality(point_t* p1, point_t* p2) {
+    return p1->x == p2->x && p1->y == p2->y;
+}
 
 int compute_arc_intersection(point_t *left, point_t *right, double sweep,
                               point_t *res) {
@@ -110,6 +113,15 @@ int compute_circumcircle(point_t *p1, point_t *p2, point_t *p3, circle_t *res) {
     res->center.y = center.y;
     res->radius = computer_euclidean(p1, &center);
     return 0;
+}
+
+void compute_circle_tangent(point_t *p1, point_t *p2, point_t *p3, point_t* res) {
+    circle_t circle;
+    compute_circumcircle(p1, p2, p3, &circle);
+    res->x = circle.center.x;
+    printf("%f %f %f\n", circle.center.x, circle.center.y, circle.radius);
+    res->y = circle.center.y - circle.radius;
+    return;
 }
 
 int main_2(int argc, char** argv) {
