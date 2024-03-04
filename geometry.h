@@ -36,6 +36,8 @@ int point_equality(point_t* p1, point_t* p2);
 int compute_arc_intersection(point_t *left, point_t *right, double sweep,
                               point_t *res);
 
+void compute_midpoint(point_t *p1, point_t *p2, point_t *res);
+
 int compute_circumcircle(point_t *p1, point_t *p2, point_t *p3, circle_t *res);
 
 void compute_circle_tangent(point_t *p1, point_t *p2, point_t *p3, point_t* res);
