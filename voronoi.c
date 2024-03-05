@@ -64,22 +64,60 @@ event_t* new_event(char label, double x, double y, point_t* left,
     return e;
 }
 
+int is_circle_event_old(event_t* e, bst_t* beachline, double sweep) {
+    boundary_t bound, *left = NULL, *right = NULL;
+    point_t* focus;
+    double beachline_y;
+    void* arg = DOUBLE2VOID(sweep);
+    init_boundary(&bound, e->sweep_event.x, sweep,
+                         e->sweep_event.x, sweep, SINGLETON);
+    bst_interval(beachline, &bound, (void**) &left,
+                 (void**) &right, arg);
+
+    if (left) focus = &left->right_point;
+    if (right) focus = &right->left_point;
+
+    beachline_y = compute_parabola_value(focus, sweep, e->sweep_event.x);
+    circle_t v;
+    compute_circumcircle(e->triplet.left, e->triplet.mid, e->triplet.right, &v);
+
+    //printf("BE %f ACt %f\n", beachline_y, v.center.y);
+    return v.center.y > beachline_y;
+}
+
+
 int is_circle_event_stale(event_t* e, bst_t* beachline, double sweep) {
     assert(e->label == CIRCLE_EVENT);
 
-    boundary_t temp;
+    boundary_t bound;
     boundary_t *left, *right;
+    point_t left_point, right_point, mid_point;
     void* arg = DOUBLE2VOID(sweep);
 
-    init_boundary(&temp, e->sweep_event.x, e->sweep_event.y, 
-                  e->sweep_event.x, e->sweep_event.y, SINGLETON);
-    bst_interval(beachline, &temp, (void**) &left, (void**) &right, arg);
 
-    printf("left point (%f, %f)\n ",left->right_point.x, left->right_point.y);
-    printf("right point (%f, %f)\n ",right->left_point.x, right->left_point.y);
-    printf("middle is %f %f\n", e->triplet.mid->x, e->triplet.mid->y);
+    /* in order to test that the circle event is still valid, we compute 
+       an arbitrary middle point betweeen the intersections of the three
+       arcs that are about to meet at a point */
+    compute_arc_intersection(e->triplet.left, e->triplet.mid,
+                             sweep, &left_point);
+    compute_arc_intersection(e->triplet.mid, e->triplet.right,
+                             sweep, &right_point);
+    compute_midpoint(&left_point, &right_point, &mid_point);
+
+    /* the idea then is to test that this midpoint indeed lies between the two
+       arcs on the beachline, otherwise it means it is no longer valid*/
+    init_boundary(&bound, mid_point.x, mid_point.y, 
+                          mid_point.x, mid_point.y, SINGLETON);
+    bst_interval(beachline, &bound, (void**) &left,
+                 (void**) &right, arg);
+    // printf("___\n");
+    //boundary_print(left);
+    //boundary_print(right);
+    //printf("___\n");
     return (!point_equality(&left->right_point, e->triplet.mid) ||
-            !point_equality(&right->left_point, e->triplet.mid));
+            !point_equality(&right->left_point, e->triplet.mid) ||
+            !point_equality(&left->left_point, e->triplet.left) ||
+            !point_equality(&right->right_point, e->triplet.right));
 }
 
 
@@ -117,6 +155,7 @@ int beachline_compare(void* elem1, void* elem2, void* args) {
         compute_arc_intersection(&bound2->left_point, &bound2->right_point,
                              sweepline, &intersect2);
     }
+    //printf("INTERSECTS %f %f\n", intersect1.x, intersect2.x);
     if (intersect1.x == intersect2.x) return 0;
     return SYMMETRIC_LEQ(intersect1.x, intersect2.x);
 }
@@ -172,13 +211,14 @@ int process_site(bst_t* beachline, pqueue_t* events,
     bst_insert(beachline, new_bound, arg);
     new_bound = new_boundary(site->x, site->y, arc_x, arc_y, INTERSECT);
     bst_insert(beachline, new_bound, arg);
+    //bst_print(beachline, *boundary_print);
     return 0;
 }
 
 int process_circle_event(bst_t* beachline, pqueue_t* events, event_t* e, 
                          double sweep) {
     circle_t voronoi_vertex;
-    boundary_t left, right, *new_left, *new_right, *new_bound;
+    boundary_t left, right, *dummy, *new_left, *new_right, *new_bound;
     point_t *leftp, *midp, *rightp;
     event_t *event_left, *event_right;
     point_t temp_point;
@@ -186,45 +226,92 @@ int process_circle_event(bst_t* beachline, pqueue_t* events, event_t* e,
 
     /* if the circle event is stale, i.e. another site came before in between,
         then just ignore */
-   // if (is_circle_event_stale(e, beachline, sweep)) return -1;
+    //is_circle_event_old(e, beachline, sweep);
+   if (is_circle_event_old(e, beachline, sweep)) return -1;
 
     leftp = e->triplet.left;
     rightp = e->triplet.right;
     midp = e->triplet.mid;
-
+    //printf("IT IS A CIRCLE EVENT\n");
+    //point_print(leftp, "THE LEFT POINT");
+    //point_print(midp, "THE MIDDLE POINT (REMOVAL)");
+    //point_print(rightp, "THE RIGHT POINT");
     /* computes the vertex that is to be added to the voronoi diagram */
     compute_circumcircle(leftp, midp, rightp, &voronoi_vertex);
 
+    /* we need to remove the two pairs containing the middle point since
+      the arc between has now dissolved */
     init_boundary(&left, leftp->x, leftp->y, midp->x, midp->y, INTERSECT);
     init_boundary(&right, midp->x, midp->y, rightp->x, rightp->y, INTERSECT);
     bst_delete(beachline, (void*) &left, arg);
     bst_delete(beachline, (void*) &right, arg);
     
+    /* inserting the new pair (arc intersection) after the middle point is 
+      removed, there is only one such pair */
+
+    /* now for the left and right points, we need to find their left and right
+      points respectively, so that we add the two potential circle events*/
+    init_boundary(&left, e->sweep_event.x - EPSILON, sweep,
+                         e->sweep_event.x - EPSILON, sweep, SINGLETON);
+    init_boundary(&right, e->sweep_event.x + EPSILON, sweep,
+                          e->sweep_event.x + EPSILON, sweep, SINGLETON);
+
+    /* we only care about the left boundary */
+    bst_interval(beachline, &left, (void**) &new_left,
+                 (void**) &dummy, arg);
+    /* we only care about the right boundary */
+    bst_interval(beachline, &right, (void**) &dummy,
+                (void**) &new_right, arg);
+    
     new_bound = new_boundary(leftp->x, leftp->y, rightp->x, rightp->y,
                              INTERSECT);
     bst_insert(beachline, new_bound, arg);
+    //boundary_print(new_left);
+    //printf("%f %f\n", midp->x, midp->y);
+    /* if the neighbouring left actually exists and that is not the 
+       midpoint itself, then add a new circle event */
+    if (new_left && !point_equality(&new_left->left_point, midp)) {
 
-    init_boundary(&left, leftp->x, sweep, leftp->x, sweep, SINGLETON);
-    init_boundary(&right, rightp->x, sweep, rightp->x, sweep, SINGLETON);
+        compute_circle_tangent(&new_left->left_point, &new_left->right_point,
+                            rightp, &temp_point);
+        //printf("FOR THE NEIGHBOUR LEFT\n");
+        //point_print(&new_left->left_point, "LEFTMOST");
+        //point_print(&new_left->right_point, "MID");
+        //point_print(rightp, "RIGHTMOST");
+        //printf("new %f %f\n", temp_point.y, sweep);
+        if (temp_point.y < sweep) {
+        event_left = new_event(CIRCLE_EVENT, temp_point.x, temp_point.y,
+                            &new_left->left_point, &new_left->right_point,
+                            rightp);
+        pqueue_insert(events, (void*) event_left);  
+        }
+    }
 
-    bst_interval(beachline, &left, (void**) &new_left, (void**) &new_right, arg);
-    compute_circle_tangent(&new_left->left_point, &new_left->right_point,
-                           rightp, &temp_point);
-    
-    event_left = new_event(CIRCLE_EVENT, temp_point.x, temp_point.y,
-                           &new_left->left_point, &new_left->right_point,
-                           rightp);
-    //pqueue_insert(events, (void*) event_left);  
-    bst_interval(beachline, &right, (void**) &new_left,  (void**) &new_right, arg);
-    compute_circle_tangent(leftp, &new_right->left_point,
-                           &new_right->right_point, &temp_point);
-    
-    event_right = new_event(CIRCLE_EVENT, temp_point.x, temp_point.y,
-                           leftp, &new_right->left_point,
-                           &new_right->right_point);
-    //pqueue_insert(events, (void*) event_right);  
 
-    printf("v %f %f\n", voronoi_vertex.center.x ,voronoi_vertex.center.y);
+
+     /* if the neighbouring right actually exists and that is not the 
+       midpoint itself, then add a new circle event */
+    if (new_right && !point_equality(&new_right->right_point, midp)) {
+
+        compute_circle_tangent(leftp, &new_right->left_point,
+                            &new_right->right_point, &temp_point);
+        
+       //printf("FOR THE NEIGHBOUR RIGHT\n");
+        //point_print(leftp, "LEFTMOST");
+        //point_print(&new_right->left_point, "MID");
+        //point_print(&new_right->right_point, "RIGHTMOST");
+
+        //printf("new %f %f\n", temp_point.y, sweep);
+        if (temp_point.y < sweep) {
+        event_right = new_event(CIRCLE_EVENT, temp_point.x, temp_point.y,
+                            leftp, &new_right->left_point,
+                            &new_right->right_point);
+        pqueue_insert(events, (void*) event_right);  
+        }
+    }
+
+    printf("v (%f, %f)\n", voronoi_vertex.center.x, 
+                        voronoi_vertex.center.y);
     return 0;
 }
 
@@ -238,28 +325,28 @@ int main(int argc, char** argv) {
     event_t* etmp;
     pq = pqueue_new(*event_compare);
 
-    
+
     p = new_boundary(7, -1, 1, -1.5, INTERSECT);
     bst_insert(tree, (void*) p, arg);
     p = new_boundary(1, -1.5, 7, -1, INTERSECT);
     bst_insert(tree, (void*) p, arg);
 
     bst_print(tree, *boundary_print);
-    pqueue_insert(pq, new_event(SITE_EVENT, 4.18, -3.37, NULL, NULL, NULL));
-    pqueue_insert(pq, new_event(SITE_EVENT, 2.35, -6, NULL, NULL, NULL));
-    pqueue_insert(pq, new_event(SITE_EVENT, 7.12, -6.28, NULL, NULL, NULL));
+    pqueue_insert(pq, new_event(SITE_EVENT, 2.4, -5.45, NULL, NULL, NULL));
+    pqueue_insert(pq, new_event(SITE_EVENT, 3.3, -5.83, NULL, NULL, NULL));
+    pqueue_insert(pq, new_event(SITE_EVENT, 4.2, -5.55, NULL, NULL, NULL));
 
     while (pqueue_size(pq) > 0) {
         pqueue_pop(pq, &etmp);
         sweep = etmp->sweep_event.y;
         if (etmp->label == SITE_EVENT) {
-            printf("SITE (%f, %f)\n", etmp->sweep_event.x, etmp->sweep_event.y);
-            process_site(tree, pq, &etmp->sweep_event, sweep - 1e-8);
+           printf("SITE (%f, %f)\n", etmp->sweep_event.x, etmp->sweep_event.y);
+            process_site(tree, pq, &etmp->sweep_event, sweep - EPSILON);
         } else {
             printf("CIRCLE (%f, %f)\n", etmp->sweep_event.x, etmp->sweep_event.y);
-            process_circle_event(tree, pq, etmp, sweep + 1e-4);
+            process_circle_event(tree, pq, etmp, sweep + EPSILON);
         }
-        bst_print(tree, *boundary_print);
+        //bst_print(tree, *boundary_print);
     }
 
 }

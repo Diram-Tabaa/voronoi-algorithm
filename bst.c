@@ -156,20 +156,33 @@ int bst_insert(bst_t* tree, void* elem, void* arg) {
 node_t* node_delete(node_t* root) {
     if (root == NULL) return NULL;
     if (root->left == NULL) return root->right;
+   // printf("NODE %p\n", root->val);
+    //printf("NODE LE%p\n", root->left->val);
     root->val = root->left->val;
     root->left = node_delete(root->left);
     return root;
 }
 
 
+node_t* node_union(node_t* l_tree, node_t* r_tree) {
+    if (l_tree == NULL) return r_tree;
+    if (r_tree == NULL) return l_tree;
+    node_t* r_temp = r_tree->left;
+    node_t* l_temp = l_tree->right;
+    l_tree->right = node_union(l_temp, r_temp);
+    r_tree->left = l_tree;
+    return r_tree;
+}
+
 int bst_delete(bst_t* tree, void* elem, void* arg) {
     void* res; 
     node_t* parent, *delete_node;
     if (node_find_parent(tree, tree->root, elem, &res, &parent, arg))
         return -1;
+    //printf("PARENT %p\n", parent->val);
     if (tree->compare_fn(parent->val, elem, arg) == SMALLER) {
-        parent->right = node_delete(parent->right);
-    } else parent->left = node_delete(parent->left);
+        parent->right = node_union(parent->right->left, parent->right->right);
+    } else parent->left = node_union(parent->left->left, parent->left->right);
     return 0;
 }
 

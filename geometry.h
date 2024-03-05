@@ -31,7 +31,11 @@ typedef struct point point_t;
 typedef struct circle circle_t;
 typedef struct line line_t;
 
+void point_print(point_t* p, char* arg);
+
 int point_equality(point_t* p1, point_t* p2);
+
+double compute_parabola_value(point_t* focus, double sweep, double x);
 
 int compute_arc_intersection(point_t *left, point_t *right, double sweep,
                               point_t *res);

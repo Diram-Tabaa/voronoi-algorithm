@@ -13,8 +13,19 @@
 #include <math.h>
 #include <stdio.h>
 
+void point_print(point_t* p, char* arg) {
+    printf("%s: (%.2f, %.2f)\n", arg, p->x, p->y);
+}
 int point_equality(point_t* p1, point_t* p2) {
     return p1->x == p2->x && p1->y == p2->y;
+}
+
+double compute_parabola_value(point_t* focus, double sweep, double x) {
+    double x_prime = x - focus->x;
+    x_prime *= x_prime;
+    x_prime += focus->y*focus->y;
+    x_prime -= sweep*sweep;
+    return x_prime / (2 * (focus->y - sweep));
 }
 
 int compute_arc_intersection(point_t *left, point_t *right, double sweep,
@@ -119,7 +130,6 @@ void compute_circle_tangent(point_t *p1, point_t *p2, point_t *p3, point_t* res)
     circle_t circle;
     compute_circumcircle(p1, p2, p3, &circle);
     res->x = circle.center.x;
-    printf("%f %f %f\n", circle.center.x, circle.center.y, circle.radius);
     res->y = circle.center.y - circle.radius;
     return;
 }
