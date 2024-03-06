@@ -114,12 +114,14 @@ int is_circle_event_stale(event_t* e, bst_t* beachline, double sweep) {
 }
 
 void new_circle_event(pqueue_t* events, boundary_t* neighbour, point_t* site,
-                      char side) {
+                      char side, char original_event, double sweep) {
     point_t point;
     event_t* event;
 
     compute_circle_tangent(&neighbour->left_point, &neighbour->right_point,
                            site, &point);
+
+    if (original_event == CIRCLE_EVENT && point.y >= sweep) return;
 
     if (side == LEFT_SIDE) {
         event = new_event(CIRCLE_EVENT, point.x, point.y,
@@ -132,7 +134,8 @@ void new_circle_event(pqueue_t* events, boundary_t* neighbour, point_t* site,
     pqueue_insert(events, (void*) event);
 }
 
-/**
+
+/** 
  * @brief 
  * 
  * @param elem1 
@@ -191,13 +194,13 @@ int process_site(bst_t* beachline, pqueue_t* events,
     if (left != NULL) {
         arc_x = left->right_point.x;
         arc_y = left->right_point.y;
-        new_circle_event(events, left, site, LEFT_SIDE);
+        new_circle_event(events, left, site, LEFT_SIDE, SITE_EVENT, sweep);
     }
     
     if (right != NULL) {
         arc_x = right->left_point.x;
         arc_y = right->left_point.y;
-        new_circle_event(events, right, site, RIGHT_SIDE);
+        new_circle_event(events, right, site, RIGHT_SIDE, SITE_EVENT, sweep);
     }
     
     new_bound = new_boundary(arc_x, arc_y, site->x, site->y, INTERSECT);
@@ -233,6 +236,12 @@ int process_circle_event(bst_t* beachline, pqueue_t* events, event_t* e,
     init_boundary(&right, midp->x, midp->y, rightp->x, rightp->y, INTERSECT);
     bst_delete(beachline, (void*) &left, arg);
     bst_delete(beachline, (void*) &right, arg);
+
+        printf("(%f, %f)\n ", voronoi_vertex.center.x, 
+                        voronoi_vertex.center.y);
+    printf("ENDS\n");
+    boundary_print(&left);
+    boundary_print(&right);
     
     /* inserting the new pair (arc intersection) after the middle point is 
       removed, there is only one such pair */
@@ -255,42 +264,66 @@ int process_circle_event(bst_t* beachline, pqueue_t* events, event_t* e,
                              INTERSECT);
     bst_insert(beachline, new_bound, arg);
 
+
+    printf("Starts for: ");
+    boundary_print(new_bound);
+
+
     /* if the neighbouring left actually exists and that is not the 
        midpoint itself, then add a new circle event */
     if (new_left && !point_equality(&new_left->left_point, midp)) {
-
-        compute_circle_tangent(&new_left->left_point, &new_left->right_point,
-                            rightp, &temp_point);
-        if (temp_point.y < sweep) {
-        event_left = new_event(CIRCLE_EVENT, temp_point.x, temp_point.y,
-                            &new_left->left_point, &new_left->right_point,
-                            rightp);
-        pqueue_insert(events, (void*) event_left);  
-        }
+        new_circle_event(events, new_left, rightp, LEFT_SIDE,
+                         CIRCLE_EVENT, sweep);
     }
-
-
-
      /* if the neighbouring right actually exists and that is not the 
        midpoint itself, then add a new circle event */
     if (new_right && !point_equality(&new_right->right_point, midp)) {
-
-        compute_circle_tangent(leftp, &new_right->left_point,
-                            &new_right->right_point, &temp_point);
-        if (temp_point.y < sweep) {
-        event_right = new_event(CIRCLE_EVENT, temp_point.x, temp_point.y,
-                            leftp, &new_right->left_point,
-                            &new_right->right_point);
-        pqueue_insert(events, (void*) event_right);  
-        }
+        new_circle_event(events, new_right, leftp, RIGHT_SIDE,
+                         CIRCLE_EVENT, sweep);
     }
 
-    printf("v (%f, %f)\n", voronoi_vertex.center.x, 
-                        voronoi_vertex.center.y);
+
     return 0;
 }
 
-int main(int argc, char** argv) {
+void preprocess_beachline(pqueue_t* points, bst_t* beachline) {
+    double x1, y1, x2, y2, sweep;
+    event_t* event;
+    void* arg;
+    pqueue_pop(points, &event);
+    x1 = event->sweep_event.x;
+    y1 = event->sweep_event.y;
+    pqueue_pop(points, &event);
+    x2 = event->sweep_event.x;
+    y2 = event->sweep_event.y; 
+    sweep = y2 - EPSILON;   
+    arg = DOUBLE2VOID(sweep);
+    bst_insert(beachline, new_boundary(x1, y1, x2, y2, INTERSECT), arg);
+    bst_insert(beachline, new_boundary(x2, y2, x1, y1, INTERSECT), arg);
+    printf("%f %f %f %f\n", x1, y1, x2, y2);
+}
+
+void compute_voronoi(pqueue_t* points) {
+    event_t* event;
+    bst_t *tree = bst_new(*beachline_compare);
+    double sweep;
+    void* arg;
+    preprocess_beachline(points, tree);
+     while (pqueue_size(points) > 0) {
+        pqueue_pop(points, &event);
+        sweep = event->sweep_event.y;
+        if (event->label == SITE_EVENT) {
+          // printf("SITE (%f, %f)\n", etmp->sweep_event.x, etmp->sweep_event.y);
+            process_site(tree, points, &event->sweep_event, sweep - EPSILON);
+        } else {
+           // printf("CIRCLE (%f, %f)\n", etmp->sweep_event.x, etmp->sweep_event.y);
+            process_circle_event(tree, points, event, sweep + EPSILON);
+        }
+        bst_print(tree, *boundary_print);
+    }
+}
+
+int main2(int argc, char** argv) {
 
     bst_t *tree = bst_new(*beachline_compare);
     boundary_t *p, *p2, *p3, *p4;
@@ -307,11 +340,11 @@ int main(int argc, char** argv) {
     bst_insert(tree, (void*) p, arg);
 
     bst_print(tree, *boundary_print);
-    pqueue_insert(pq, new_event(SITE_EVENT, 2.4, -5.45, NULL, NULL, NULL));
+    pqueue_insert(pq, new_event(SITE_EVENT, 4, -2.3, NULL, NULL, NULL));
+    pqueue_insert(pq, new_event(SITE_EVENT, 2, -3.97, NULL, NULL, NULL));
+    pqueue_insert(pq, new_event(SITE_EVENT, 4.38, -4.03, NULL, NULL, NULL));
+    pqueue_insert(pq, new_event(SITE_EVENT, 6.27, -4.58, NULL, NULL, NULL));
     pqueue_insert(pq, new_event(SITE_EVENT, 3.3, -5.83, NULL, NULL, NULL));
-    pqueue_insert(pq, new_event(SITE_EVENT, 4.2, -5.55, NULL, NULL, NULL));
-    pqueue_insert(pq, new_event(SITE_EVENT, 10.2, -1.55, NULL, NULL, NULL));
-    pqueue_insert(pq, new_event(SITE_EVENT, 1.2, -3.55, NULL, NULL, NULL));
     while (pqueue_size(pq) > 0) {
         pqueue_pop(pq, &etmp);
         sweep = etmp->sweep_event.y;

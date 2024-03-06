@@ -48,4 +48,10 @@ struct event {
 typedef struct boundary boundary_t;
 typedef struct event event_t;
 
+event_t* new_event(char label, double x, double y, point_t* left, 
+                point_t* mid, point_t* right);
+
+int event_compare(void* e1, void* e2);
+
+void compute_voronoi(pqueue_t* points);
 #endif
