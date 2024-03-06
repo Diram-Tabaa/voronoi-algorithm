@@ -19,8 +19,6 @@ struct node {
     void* val;
 };
 
-typedef struct node node_t;
-
 struct bst {
     node_t* root;
     int (*compare_fn)(void*, void*, void*);
@@ -49,7 +47,6 @@ bst_t *bst_new(int (*compare_fn)(void*, void*, void*)) {
 
 int node_find(bst_t* tree, node_t* root, void* elem, void** resp,
               node_t** nodep, void* arg) {
-    int comparison_result;
     int res;
     int comp;
 
@@ -62,6 +59,10 @@ int node_find(bst_t* tree, node_t* root, void* elem, void** resp,
         res = node_find(tree, root->left, elem, resp, nodep, arg);
     } else if (comp == GREATER) {
         res = node_find(tree, root->right, elem, resp, nodep, arg);
+    } else {
+        *resp = root->val;
+        if (nodep) *nodep = root;
+        return 1;
     }
 
     if (res == NULL_ROOT) {
@@ -74,7 +75,6 @@ int node_find(bst_t* tree, node_t* root, void* elem, void** resp,
 
 int node_find_parent(bst_t* tree, node_t* root, void* elem, void** resp,
               node_t** parentp, void* arg) {
-    int comparison_result;
     int res;
     int comp;
 
@@ -176,7 +176,7 @@ node_t* node_union(node_t* l_tree, node_t* r_tree) {
 
 int bst_delete(bst_t* tree, void* elem, void* arg) {
     void* res; 
-    node_t* parent, *delete_node;
+    node_t* parent;
     if (node_find_parent(tree, tree->root, elem, &res, &parent, arg))
         return -1;
     //printf("PARENT %p\n", parent->val);

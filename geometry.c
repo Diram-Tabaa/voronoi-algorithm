@@ -134,16 +134,3 @@ void compute_circle_tangent(point_t *p1, point_t *p2, point_t *p3, point_t* res)
     return;
 }
 
-int main_2(int argc, char** argv) {
-    point_t p1 = {1.3, 5.1};
-    point_t p2 = {-3.1, 7.1};
-    point_t p3 = {-5, -5};
-    circle_t result;
-    compute_circumcircle(&p1, &p2, &p3, &result);
-
-    point_t p4 = {-1, -0.1231111};
-    point_t p5 = {5, 4};
-    point_t p6;
-    compute_arc_intersection(&p4, &p5, -1, &p6);
-    printf("%f %f\n", p6.x, p6.y);
-}

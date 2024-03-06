@@ -175,8 +175,6 @@ int process_site(bst_t* beachline, pqueue_t* events,
     boundary_t *left, *right, *new_bound;
 
     double arc_x, arc_y;
-    point_t temp_point;
-    event_t *event_left, *event_right;
 
     void* arg = DOUBLE2VOID(sweep);
 
@@ -215,8 +213,6 @@ int process_circle_event(bst_t* beachline, pqueue_t* events, event_t* e,
     circle_t voronoi_vertex;
     boundary_t left, right, *dummy, *new_left, *new_right, *new_bound;
     point_t *leftp, *midp, *rightp;
-    event_t *event_left, *event_right;
-    point_t temp_point;
     void* arg = DOUBLE2VOID(sweep);
 
     /* if the circle event is stale, i.e. another site came before in between,
@@ -290,10 +286,10 @@ void preprocess_beachline(pqueue_t* points, bst_t* beachline) {
     double x1, y1, x2, y2, sweep;
     event_t* event;
     void* arg;
-    pqueue_pop(points, &event);
+    pqueue_pop(points, (void**) &event);
     x1 = event->sweep_event.x;
     y1 = event->sweep_event.y;
-    pqueue_pop(points, &event);
+    pqueue_pop(points, (void**) &event);
     x2 = event->sweep_event.x;
     y2 = event->sweep_event.y; 
     sweep = y2 - EPSILON;   
@@ -307,10 +303,9 @@ void compute_voronoi(pqueue_t* points) {
     event_t* event;
     bst_t *tree = bst_new(*beachline_compare);
     double sweep;
-    void* arg;
     preprocess_beachline(points, tree);
      while (pqueue_size(points) > 0) {
-        pqueue_pop(points, &event);
+        pqueue_pop(points, (void**) &event);
         sweep = event->sweep_event.y;
         if (event->label == SITE_EVENT) {
           // printf("SITE (%f, %f)\n", etmp->sweep_event.x, etmp->sweep_event.y);
@@ -326,7 +321,7 @@ void compute_voronoi(pqueue_t* points) {
 int main2(int argc, char** argv) {
 
     bst_t *tree = bst_new(*beachline_compare);
-    boundary_t *p, *p2, *p3, *p4;
+    boundary_t *p;
     double sweep = -1.501;
     void* arg = DOUBLE2VOID(sweep);
     pqueue_t* pq;
@@ -346,7 +341,7 @@ int main2(int argc, char** argv) {
     pqueue_insert(pq, new_event(SITE_EVENT, 6.27, -4.58, NULL, NULL, NULL));
     pqueue_insert(pq, new_event(SITE_EVENT, 3.3, -5.83, NULL, NULL, NULL));
     while (pqueue_size(pq) > 0) {
-        pqueue_pop(pq, &etmp);
+        pqueue_pop(pq,(void**) &etmp);
         sweep = etmp->sweep_event.y;
         if (etmp->label == SITE_EVENT) {
           // printf("SITE (%f, %f)\n", etmp->sweep_event.x, etmp->sweep_event.y);
@@ -357,5 +352,5 @@ int main2(int argc, char** argv) {
         }
         //bst_print(tree, *boundary_print);
     }
-
+    return 0;
 }
