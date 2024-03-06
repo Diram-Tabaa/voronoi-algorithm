@@ -310,7 +310,8 @@ int main(int argc, char** argv) {
     pqueue_insert(pq, new_event(SITE_EVENT, 2.4, -5.45, NULL, NULL, NULL));
     pqueue_insert(pq, new_event(SITE_EVENT, 3.3, -5.83, NULL, NULL, NULL));
     pqueue_insert(pq, new_event(SITE_EVENT, 4.2, -5.55, NULL, NULL, NULL));
-
+    pqueue_insert(pq, new_event(SITE_EVENT, 10.2, -1.55, NULL, NULL, NULL));
+    pqueue_insert(pq, new_event(SITE_EVENT, 1.2, -3.55, NULL, NULL, NULL));
     while (pqueue_size(pq) > 0) {
         pqueue_pop(pq, &etmp);
         sweep = etmp->sweep_event.y;
