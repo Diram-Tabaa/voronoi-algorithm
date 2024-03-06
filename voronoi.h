@@ -54,4 +54,5 @@ event_t* new_event(char label, double x, double y, point_t* left,
 int event_compare(void* e1, void* e2);
 
 void compute_voronoi(pqueue_t* points);
+int main2(int argc, char** argv);
 #endif

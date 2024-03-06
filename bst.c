@@ -177,8 +177,17 @@ node_t* node_union(node_t* l_tree, node_t* r_tree) {
 int bst_delete(bst_t* tree, void* elem, void* arg) {
     void* res; 
     node_t* parent;
-    if (node_find_parent(tree, tree->root, elem, &res, &parent, arg))
+    int val;
+
+    /* if the root itself is the element, merge directly */
+    if (tree->compare_fn(tree->root->val, elem, arg) == EQUAL) {
+        tree->root = node_union(tree->root->left, tree->root->right);
+        return 0;
+    }
+
+    if (node_find_parent(tree, tree->root, elem, &res, &parent, arg) == -1) {
         return -1;
+    } 
     //printf("PARENT %p\n", parent->val);
     if (tree->compare_fn(parent->val, elem, arg) == SMALLER) {
         parent->right = node_union(parent->right->left, parent->right->right);

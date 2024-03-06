@@ -27,5 +27,6 @@ int pqueue_peek(pqueue_t *que, void** itemp);
 
 int pqueue_pop(pqueue_t *que, void** itemp);
 
+void pqueue_print(pqueue_t* que);
 
 #endif

@@ -22,10 +22,12 @@ int parse_input(char* filename, pqueue_t* events) {
     if (fscanf(input, "%d\n", &args) < 1) return -1;
     for (int i = 0; i < args; i++) {
         if (fscanf(input, "%lf %lf\n", &x, &y) < 2) return -1;
-        printf("%f %f\n", x, y);
+        printf("(%f, %f), ", x, y);
+        printf("(x - %f)^2 + (%f)^2 - s^2 = 2(%f - s)y\n", x, y, y);
         event = new_event(SITE_EVENT, x, y, NULL, NULL, NULL);
         pqueue_insert(events, event);
     }
+    printf("\n");
     return 0;
 }
 

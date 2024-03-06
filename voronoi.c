@@ -108,8 +108,8 @@ int is_circle_event_stale(event_t* e, bst_t* beachline, double sweep) {
     beachline_y = compute_parabola_value(focus, sweep, beachline_x);
     compute_circumcircle(e->triplet.left, e->triplet.mid, e->triplet.right,
                          &event_circle);
-
-
+   // printf("sweep %f", sweep);
+   // printf("IS stale %f %f\n", event_circle.center.y, beachline_y);
     return (event_circle.center.y > beachline_y);
 }
 
@@ -230,15 +230,16 @@ int process_circle_event(bst_t* beachline, pqueue_t* events, event_t* e,
       the arc between has now dissolved */
     init_boundary(&left, leftp->x, leftp->y, midp->x, midp->y, INTERSECT);
     init_boundary(&right, midp->x, midp->y, rightp->x, rightp->y, INTERSECT);
+
     bst_delete(beachline, (void*) &left, arg);
     bst_delete(beachline, (void*) &right, arg);
 
-        printf("(%f, %f)\n ", voronoi_vertex.center.x, 
+        printf("(%f, %f),  ", voronoi_vertex.center.x, 
                         voronoi_vertex.center.y);
-    printf("ENDS\n");
-    boundary_print(&left);
-    boundary_print(&right);
-    
+    //printf("ENDS\n");
+    //boundary_print(&left);
+    //boundary_print(&right);
+    //printf("--\n");
     /* inserting the new pair (arc intersection) after the middle point is 
       removed, there is only one such pair */
 
@@ -261,8 +262,8 @@ int process_circle_event(bst_t* beachline, pqueue_t* events, event_t* e,
     bst_insert(beachline, new_bound, arg);
 
 
-    printf("Starts for: ");
-    boundary_print(new_bound);
+    //printf("Starts for: ");
+    //boundary_print(new_bound);
 
 
     /* if the neighbouring left actually exists and that is not the 
@@ -308,14 +309,16 @@ void compute_voronoi(pqueue_t* points) {
         pqueue_pop(points, (void**) &event);
         sweep = event->sweep_event.y;
         if (event->label == SITE_EVENT) {
-          // printf("SITE (%f, %f)\n", etmp->sweep_event.x, etmp->sweep_event.y);
+          //  printf("SITE (%f, %f)\n", event->sweep_event.x, event->sweep_event.y);
             process_site(tree, points, &event->sweep_event, sweep - EPSILON);
+           // bst_print(tree, *boundary_print);
         } else {
-           // printf("CIRCLE (%f, %f)\n", etmp->sweep_event.x, etmp->sweep_event.y);
+          // printf("CIRCLE (%f, %f)\n", event->sweep_event.x, event->sweep_event.y);
             process_circle_event(tree, points, event, sweep + EPSILON);
+      //  bst_print(tree, *boundary_print);
         }
-        bst_print(tree, *boundary_print);
     }
+    printf("\n");
 }
 
 int main2(int argc, char** argv) {
