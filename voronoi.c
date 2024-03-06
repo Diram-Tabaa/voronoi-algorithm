@@ -202,9 +202,9 @@ int process_site(bst_t* beachline, pqueue_t* events,
     }
     
     new_bound = new_boundary(arc_x, arc_y, site->x, site->y, INTERSECT);
-    bst_insert(beachline, new_bound, arg);
+    bst_insert(beachline, new_bound, NULL, arg);
     new_bound = new_boundary(site->x, site->y, arc_x, arc_y, INTERSECT);
-    bst_insert(beachline, new_bound, arg);
+    bst_insert(beachline, new_bound, NULL, arg);
     return 0;
 }
 
@@ -231,8 +231,8 @@ int process_circle_event(bst_t* beachline, pqueue_t* events, event_t* e,
     init_boundary(&left, leftp->x, leftp->y, midp->x, midp->y, INTERSECT);
     init_boundary(&right, midp->x, midp->y, rightp->x, rightp->y, INTERSECT);
 
-    bst_delete(beachline, (void*) &left, arg);
-    bst_delete(beachline, (void*) &right, arg);
+    bst_delete(beachline, (void*) &left, NULL, arg);
+    bst_delete(beachline, (void*) &right, NULL, arg);
 
         printf("(%f, %f),  ", voronoi_vertex.center.x, 
                         voronoi_vertex.center.y);
@@ -259,7 +259,7 @@ int process_circle_event(bst_t* beachline, pqueue_t* events, event_t* e,
     
     new_bound = new_boundary(leftp->x, leftp->y, rightp->x, rightp->y,
                              INTERSECT);
-    bst_insert(beachline, new_bound, arg);
+    bst_insert(beachline, new_bound, NULL, arg);
 
 
     //printf("Starts for: ");
@@ -295,8 +295,8 @@ void preprocess_beachline(pqueue_t* points, bst_t* beachline) {
     y2 = event->sweep_event.y; 
     sweep = y2 - EPSILON;   
     arg = DOUBLE2VOID(sweep);
-    bst_insert(beachline, new_boundary(x1, y1, x2, y2, INTERSECT), arg);
-    bst_insert(beachline, new_boundary(x2, y2, x1, y1, INTERSECT), arg);
+    bst_insert(beachline, new_boundary(x1, y1, x2, y2, INTERSECT), NULL, arg);
+    bst_insert(beachline, new_boundary(x2, y2, x1, y1, INTERSECT), NULL, arg);
     printf("%f %f %f %f\n", x1, y1, x2, y2);
 }
 
@@ -333,9 +333,9 @@ int main2(int argc, char** argv) {
 
 
     p = new_boundary(7, -1, 1, -1.5, INTERSECT);
-    bst_insert(tree, (void*) p, arg);
+    bst_insert(tree, (void*) p, NULL, arg);
     p = new_boundary(1, -1.5, 7, -1, INTERSECT);
-    bst_insert(tree, (void*) p, arg);
+    bst_insert(tree, (void*) p, NULL, arg);
 
     bst_print(tree, *boundary_print);
     pqueue_insert(pq, new_event(SITE_EVENT, 4, -2.3, NULL, NULL, NULL));

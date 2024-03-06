@@ -16,6 +16,8 @@
 #define SMALLER 1
 #define EQUAL 0
 #define NULL_ROOT -1
+#define KEY_FOUND 1
+#define KEY_NOT_FOUND 0
 
 struct node;
 struct bst;
@@ -26,15 +28,13 @@ typedef struct node node_t;
 
 bst_t *bst_new(int (*compare_fn)(void*, void*, void*));
 
-int bst_find(bst_t* tree, void* elem, void** resp, node_t** nodep, void* arg);
+int bst_find(bst_t* tree, void* key, void** valp, node_t** nodep, void* arg);
 
-int bst_interval(bst_t* tree, void* elem, void** leftp, void** rightp, void* arg);
+int bst_interval(bst_t* tree, void* key, void** leftp, void** rightp, void* arg);
 
-int bst_insert(bst_t* tree, void* elem, void* arg);
+int bst_insert(bst_t* tree, void* key, void* val, void* arg);
 
-int bst_insert_and_split(bst_t* tree, void* elem);
-
-int bst_delete(bst_t* tree, void* elem, void* arg);
+int bst_delete(bst_t* tree, void* key, void** valp, void* arg);
 
 void bst_print(bst_t* tree,void (*print_fn)(void*));
 
