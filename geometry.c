@@ -12,12 +12,80 @@
 #include "geometry.h"
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
 
 void point_print(point_t* p, char* arg) {
     printf("%s: (%.2f, %.2f)\n", arg, p->x, p->y);
 }
 int point_equality(point_t* p1, point_t* p2) {
     return p1->x == p2->x && p1->y == p2->y;
+}
+
+segment_t* segment_new(line_t* source_line, point_t* dp1, point_t* dp2) {
+    segment_t* seg;
+    if (!(seg = malloc(sizeof(segment_t)))) return NULL;
+    seg->label = SEG_LINE;
+    seg->options.line.intercept = source_line->intercept;
+    seg->options.line.gradient = source_line->gradient;
+    seg->dual.p1.x = dp1->x;
+    seg->dual.p1.y = dp1->y;
+    seg->dual.p2.x = dp2->x;
+    seg->dual.p2.y = dp2->y;
+    return seg;
+}
+
+void segment_transform(segment_t* seg, point_t* point) {
+    if (seg->label == SEG_LINE) {
+        segment_line2ray(seg, point);
+    } else {
+        segment_ray2seg(seg, point);
+    }
+}
+void segment_line2ray(segment_t* seg, point_t* point) {
+    assert(seg->label == SEG_LINE);
+    seg->label= SEG_RAY;
+    seg->options.ray.gradient = LINE_GRADIENT(seg);
+    seg->options.ray.p.x = point->x;
+    seg->options.ray.p.y = point->y;
+}
+
+void segment_ray2seg(segment_t* seg, point_t* point) {
+    assert(seg->label == SEG_RAY);
+    seg->label = SEG_SEG;
+    seg->options.seg.p1.x = RAY_POINT(seg)->x;
+    seg->options.seg.p1.y = RAY_POINT(seg)->y;
+    seg->options.seg.p2.x = point->x;
+    seg->options.seg.p2.y = point->y;
+}
+
+void segment_print(segment_t* seg) {
+    switch (seg->label) {
+        case SEG_LINE:
+            break;
+            printf("LINE ");
+            printf("grad %f, intercept %f\n", seg->options.line.gradient,
+                    seg->options.line.intercept);
+            break;
+        case SEG_RAY:
+            printf("[[%f, %f], [%f, %f]], ", seg->dual.p1.x, 
+                   seg->dual.p1.y, seg->dual.p2.x,
+                   seg->dual.p2.y);
+            break;
+            printf("RAY ");
+            printf("grad %f, point ", seg->options.ray.gradient);
+            point_print(&seg->options.ray.p, "");
+            printf("\n");
+            break;
+        case SEG_SEG:
+            printf("[[%f, %f], [%f, %f]], ", seg->dual.p1.x, 
+                  seg->dual.p1.y, seg->dual.p2.x,
+                 seg->dual.p2.y);
+            printf("[[%f, %f], [%f, %f]],  ", seg->options.seg.p1.x, 
+                   seg->options.seg.p1.y, seg->options.seg.p2.x,
+                   seg->options.seg.p2.y);
+            break;
+    }
 }
 
 double compute_parabola_value(point_t* focus, double sweep, double x) {

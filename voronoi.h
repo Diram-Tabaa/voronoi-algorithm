@@ -48,6 +48,10 @@ struct event {
 typedef struct boundary boundary_t;
 typedef struct event event_t;
 
+void event_print(void* e);
+
+void boundary_print(void* elem);
+
 event_t* new_event(char label, double x, double y, point_t* left, 
                 point_t* mid, point_t* right);
 

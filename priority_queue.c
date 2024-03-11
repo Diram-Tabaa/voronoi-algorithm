@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include "voronoi.h"
 
 struct pqueue {
     int size;
@@ -40,6 +41,29 @@ void traverse_up(void** heap, int size, int (*compare_fn)(void*, void*)) {
     }
 }
 
+void traverse_down(void** heap, int size, int (*compare_fn)(void*, void*)) {
+    int idx, cidx1, cidx2, pidx;
+    void* temp;
+    idx = 0;
+    cidx1 = 1;
+    cidx2 = 2;
+    while (cidx1 < size && (compare_fn(heap[cidx1], heap[idx]) == 1
+           || cidx2 >= size || compare_fn(heap[cidx2], heap[idx]) == 1)) {
+        temp = heap[cidx1];
+        pidx = cidx1;
+        if (cidx2 < size && compare_fn(heap[cidx2], heap[cidx1]) == 1) {
+            temp = heap[cidx2];
+            pidx = cidx2;
+        }
+        heap[pidx] = heap[idx];
+        heap[idx] = temp;
+
+        idx = pidx;
+        cidx1 = 2*idx + 1;
+        cidx2 = 2*idx + 2;
+    }
+}
+
 /**
  * @brief allocate and initialize a generic priority queue
  * 
@@ -61,10 +85,11 @@ pqueue_t *pqueue_new(int (*compare_fn)(void*, void*)) {
 }
 
 
-void pqueue_print(pqueue_t* que) {
+void pqueue_print(pqueue_t* que, void (* print_fn)(void*)) {
     assert(que != NULL);
     for (int i = 0; i < que->size; i++) {
-        printf("%p ", que->heap[i]);
+        //printf("%p ", que->heap[i]);
+        print_fn(que->heap[i]);
     }
     printf("\n");
 }
@@ -134,26 +159,8 @@ int pqueue_pop(pqueue_t *que, void** itemp) {
     int idx = 0;
     int first_child = 2*idx + 1, second_child = 2*idx + 2;
     *itemp = que->heap[0];
-
-    while (first_child < que->size) {
-
-        /* first child has higher priority */
-        if (second_child == que->size || 
-            que->compare_fn(que->heap[first_child],
-                            que->heap[second_child]) == 1) {
-            que->heap[idx] = que->heap[first_child];
-            idx = first_child;
-        } else {
-            que->heap[idx] = que->heap[second_child];
-            idx = second_child;
-        }
-
-        first_child = 2*idx + 1;
-        second_child = 2*idx + 2;
-     }
-    
-    memmove(&que->heap[idx], &que->heap[idx+1],
-             sizeof(void*)*(que->size - idx - 1));
+    que->heap[0] = que->heap[que->size-1];
+    traverse_down(que->heap, que->size - 1, que->compare_fn);
     que->size--;
     return 0;
 }

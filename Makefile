@@ -1,8 +1,8 @@
 CC = gcc
-CFLAGS = -g -Wall -O3 -std=c99
+CFLAGS = -g -Wall -O3 -std=c99 
 LDFLAGS = -lm
 
-SOURCES = bst.c geometry.c priority_queue.c voronoi.c voronoi_main.c
+SOURCES = uarray.c bst.c geometry.c priority_queue.c voronoi.c voronoi_main.c
 OBJECTS = $(SOURCES:.c=.o)
 TARGET = voronoi
 

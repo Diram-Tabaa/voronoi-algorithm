@@ -9,6 +9,8 @@
  * 
  */
 #include "voronoi.h"
+#include "uarray.h"
+
 
 
 /***************/
@@ -29,6 +31,7 @@ boundary_t* new_boundary(double left_x, double left_y, double right_x,
                          double right_y, char label) {
     boundary_t* bound;
     if (!(bound = malloc(sizeof(boundary_t)))) return NULL;
+    //printf("WELL IT IS %p\n", bound);
     init_boundary(bound, left_x, left_y, right_x, right_y, label);
     return bound;
 }
@@ -45,6 +48,11 @@ void boundary_print(void* elem) {
 /***********/
 /*  EVENTS */
 /***********/
+
+void event_print(void* e) {
+    event_t* event = (event_t*) e;
+    printf("(%.2f, %.2f) ", event->sweep_event.x, event->sweep_event.y);
+}
 
 void init_event(event_t* e, char label, double x, double y, point_t* left, 
                 point_t* mid, point_t* right) {
@@ -96,6 +104,7 @@ int is_circle_event_stale(event_t* e, bst_t* beachline, double sweep) {
     bst_interval(beachline, &bound, (void**) &left,
                  (void**) &right, arg);
 
+
     /* the invariant maintains that the left intersection's right will always
        be the right intersection's left, and at least one of them will be 
        non-NULL */
@@ -105,11 +114,10 @@ int is_circle_event_stale(event_t* e, bst_t* beachline, double sweep) {
     /* we compute the y value on the beachline at that point, so that we can
        tell if the circumcircle's center is behind or on the beachline, if it 
        is behind it means that this circle event is no longer valid */
+
     beachline_y = compute_parabola_value(focus, sweep, beachline_x);
     compute_circumcircle(e->triplet.left, e->triplet.mid, e->triplet.right,
                          &event_circle);
-   // printf("sweep %f", sweep);
-   // printf("IS stale %f %f\n", event_circle.center.y, beachline_y);
     return (event_circle.center.y > beachline_y);
 }
 
@@ -163,18 +171,20 @@ int beachline_compare(void* elem1, void* elem2, void* args) {
                              sweepline, &intersect2);
     }
 
-    if (intersect1.x == intersect2.x) return 0;
+    if (intersect2.x == intersect1.x) return 0;
     return SYMMETRIC_LEQ(intersect1.x, intersect2.x);
 }
 
 
 
-int process_site(bst_t* beachline, pqueue_t* events,
+int process_site(bst_t* beachline, pqueue_t* events,  uarray_t* arr,
                      point_t* site, double sweep) {
     boundary_t temp;
     boundary_t *left, *right, *new_bound;
-
+    line_t source_line;
+    point_t* arc_point;
     double arc_x, arc_y;
+    segment_t* new_edge;
 
     void* arg = DOUBLE2VOID(sweep);
 
@@ -184,35 +194,41 @@ int process_site(bst_t* beachline, pqueue_t* events,
     if (bst_interval(beachline, &temp, (void**) &left, (void**) &right, arg)) {
         return -1;
     }
-
     /* INVARIANT: if left and right not NULL, left->right == right->left */
     /* the invariant maintains that the left intersection's right will always
        be the right intersection's left, and at least one of them will be 
        non-NULL */
+
     if (left != NULL) {
+        arc_point = &left->right_point;
         arc_x = left->right_point.x;
         arc_y = left->right_point.y;
         new_circle_event(events, left, site, LEFT_SIDE, SITE_EVENT, sweep);
-    }
+    } 
     
     if (right != NULL) {
+        arc_point = &right->left_point;
         arc_x = right->left_point.x;
         arc_y = right->left_point.y;
         new_circle_event(events, right, site, RIGHT_SIDE, SITE_EVENT, sweep);
     }
     
-    new_bound = new_boundary(arc_x, arc_y, site->x, site->y, INTERSECT);
-    bst_insert(beachline, new_bound, NULL, arg);
-    new_bound = new_boundary(site->x, site->y, arc_x, arc_y, INTERSECT);
-    bst_insert(beachline, new_bound, NULL, arg);
+    compute_bisector(arc_point, site, &source_line);
+    new_edge = segment_new(&source_line, arc_point, site);
+    new_bound = new_boundary(arc_point->x, arc_point->y, site->x, site->y, INTERSECT);
+    bst_insert(beachline, new_bound, new_edge, arg);
+    new_bound = new_boundary(site->x, site->y, arc_point->x, arc_point->y, INTERSECT);
+    bst_insert(beachline, new_bound, new_edge, arg);
     return 0;
 }
 
-int process_circle_event(bst_t* beachline, pqueue_t* events, event_t* e, 
+int process_circle_event(bst_t* beachline, pqueue_t* events, uarray_t* arr, event_t* e, 
                          double sweep) {
     circle_t voronoi_vertex;
     boundary_t left, right, *dummy, *new_left, *new_right, *new_bound;
     point_t *leftp, *midp, *rightp;
+    segment_t *leftseg, *rightseg, *edge;
+    line_t source_line;
     void* arg = DOUBLE2VOID(sweep);
 
     /* if the circle event is stale, i.e. another site came before in between,
@@ -231,15 +247,19 @@ int process_circle_event(bst_t* beachline, pqueue_t* events, event_t* e,
     init_boundary(&left, leftp->x, leftp->y, midp->x, midp->y, INTERSECT);
     init_boundary(&right, midp->x, midp->y, rightp->x, rightp->y, INTERSECT);
 
-    bst_delete(beachline, (void*) &left, NULL, arg);
-    bst_delete(beachline, (void*) &right, NULL, arg);
+    bst_delete(beachline, (void*) &left, &leftseg, arg);
+    bst_delete(beachline, (void*) &right, &rightseg, arg);
 
-        printf("(%f, %f),  ", voronoi_vertex.center.x, 
-                        voronoi_vertex.center.y);
-    //printf("ENDS\n");
-    //boundary_print(&left);
-    //boundary_print(&right);
-    //printf("--\n");
+    segment_transform(leftseg, &voronoi_vertex.center);
+    segment_transform(rightseg, &voronoi_vertex.center);
+
+    if (leftseg->label == SEG_SEG) {
+        segment_print(leftseg);
+    }
+    if (rightseg->label == SEG_SEG) {
+       segment_print(rightseg);
+    }
+
     /* inserting the new pair (arc intersection) after the middle point is 
       removed, there is only one such pair */
 
@@ -259,12 +279,10 @@ int process_circle_event(bst_t* beachline, pqueue_t* events, event_t* e,
     
     new_bound = new_boundary(leftp->x, leftp->y, rightp->x, rightp->y,
                              INTERSECT);
-    bst_insert(beachline, new_bound, NULL, arg);
-
-
-    //printf("Starts for: ");
-    //boundary_print(new_bound);
-
+    compute_bisector(leftp, rightp, &source_line);
+    edge = segment_new(&source_line, leftp, rightp);
+    segment_transform(edge, &voronoi_vertex.center);
+    bst_insert(beachline, new_bound, edge, arg);
 
     /* if the neighbouring left actually exists and that is not the 
        midpoint itself, then add a new circle event */
@@ -279,12 +297,13 @@ int process_circle_event(bst_t* beachline, pqueue_t* events, event_t* e,
                          CIRCLE_EVENT, sweep);
     }
 
-
     return 0;
 }
 
 void preprocess_beachline(pqueue_t* points, bst_t* beachline) {
     double x1, y1, x2, y2, sweep;
+    line_t source_line;
+    segment_t *edge;
     event_t* event;
     void* arg;
     pqueue_pop(points, (void**) &event);
@@ -295,65 +314,32 @@ void preprocess_beachline(pqueue_t* points, bst_t* beachline) {
     y2 = event->sweep_event.y; 
     sweep = y2 - EPSILON;   
     arg = DOUBLE2VOID(sweep);
-    bst_insert(beachline, new_boundary(x1, y1, x2, y2, INTERSECT), NULL, arg);
-    bst_insert(beachline, new_boundary(x2, y2, x1, y1, INTERSECT), NULL, arg);
-    printf("%f %f %f %f\n", x1, y1, x2, y2);
+
+    point_t p1 = {x1, y1};
+    point_t p2 = {x2, y2};
+    compute_bisector(&p1, &p2, &source_line);
+    edge = segment_new(&source_line, &p1, &p2);
+    bst_insert(beachline, new_boundary(x1, y1, x2, y2, INTERSECT), edge, arg);
+    bst_insert(beachline, new_boundary(x2, y2, x1, y1, INTERSECT), edge, arg);
 }
 
 void compute_voronoi(pqueue_t* points) {
     event_t* event;
     bst_t *tree = bst_new(*beachline_compare);
     double sweep;
+    uarray_t* arr = uarray_new();
     preprocess_beachline(points, tree);
      while (pqueue_size(points) > 0) {
         pqueue_pop(points, (void**) &event);
         sweep = event->sweep_event.y;
         if (event->label == SITE_EVENT) {
-          //  printf("SITE (%f, %f)\n", event->sweep_event.x, event->sweep_event.y);
-            process_site(tree, points, &event->sweep_event, sweep - EPSILON);
-           // bst_print(tree, *boundary_print);
+            process_site(tree, points, arr, &event->sweep_event, sweep - EPSILON);
         } else {
-          // printf("CIRCLE (%f, %f)\n", event->sweep_event.x, event->sweep_event.y);
-            process_circle_event(tree, points, event, sweep + EPSILON);
-      //  bst_print(tree, *boundary_print);
+            process_circle_event(tree, points, arr, event, sweep + EPSILON);
         }
     }
-    printf("\n");
+   
+   bst_print(tree, *boundary_print);
+   printf("\n");
 }
 
-int main2(int argc, char** argv) {
-
-    bst_t *tree = bst_new(*beachline_compare);
-    boundary_t *p;
-    double sweep = -1.501;
-    void* arg = DOUBLE2VOID(sweep);
-    pqueue_t* pq;
-    event_t* etmp;
-    pq = pqueue_new(*event_compare);
-
-
-    p = new_boundary(7, -1, 1, -1.5, INTERSECT);
-    bst_insert(tree, (void*) p, NULL, arg);
-    p = new_boundary(1, -1.5, 7, -1, INTERSECT);
-    bst_insert(tree, (void*) p, NULL, arg);
-
-    bst_print(tree, *boundary_print);
-    pqueue_insert(pq, new_event(SITE_EVENT, 4, -2.3, NULL, NULL, NULL));
-    pqueue_insert(pq, new_event(SITE_EVENT, 2, -3.97, NULL, NULL, NULL));
-    pqueue_insert(pq, new_event(SITE_EVENT, 4.38, -4.03, NULL, NULL, NULL));
-    pqueue_insert(pq, new_event(SITE_EVENT, 6.27, -4.58, NULL, NULL, NULL));
-    pqueue_insert(pq, new_event(SITE_EVENT, 3.3, -5.83, NULL, NULL, NULL));
-    while (pqueue_size(pq) > 0) {
-        pqueue_pop(pq,(void**) &etmp);
-        sweep = etmp->sweep_event.y;
-        if (etmp->label == SITE_EVENT) {
-          // printf("SITE (%f, %f)\n", etmp->sweep_event.x, etmp->sweep_event.y);
-            process_site(tree, pq, &etmp->sweep_event, sweep - EPSILON);
-        } else {
-           // printf("CIRCLE (%f, %f)\n", etmp->sweep_event.x, etmp->sweep_event.y);
-            process_circle_event(tree, pq, etmp, sweep + EPSILON);
-        }
-        //bst_print(tree, *boundary_print);
-    }
-    return 0;
-}
