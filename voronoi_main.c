@@ -33,7 +33,11 @@ int parse_input(char* filename, pqueue_t* events) {
 
 int main(int argc, char** argv) {
     pqueue_t* pq = pqueue_new(*event_compare);
+    bst_t* voronoi;
     parse_input(argv[1], pq);
-    compute_voronoi(pq);
+    voronoi = compute_voronoi(pq);
+    bst_print(voronoi, *segment_print);
+    printf("\n");
+    pqueue_free(pq);
     return 0;
 }

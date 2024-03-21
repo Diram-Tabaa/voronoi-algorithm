@@ -29,4 +29,6 @@ int pqueue_pop(pqueue_t *que, void** itemp);
 
 void pqueue_print(pqueue_t* que, void (* print_fn)(void*));
 
+void pqueue_free(pqueue_t *que);
+
 #endif

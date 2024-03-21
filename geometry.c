@@ -16,10 +16,22 @@
 #include <assert.h>
 
 void point_print(point_t* p, char* arg) {
-    printf("%s: (%.2f, %.2f)\n", arg, p->x, p->y);
+    printf("%s: (%.5f, %.5f)\n", arg, p->x, p->y);
 }
+
 int point_equality(point_t* p1, point_t* p2) {
     return p1->x == p2->x && p1->y == p2->y;
+}
+
+int point_compare(point_t* p1, point_t* p2) {
+    int comp;
+    if ((comp = ASYM_COMPARE(p1->y, p2->y))) return comp;
+    return ASYM_COMPARE(p1->x, p2->x);
+}
+
+void point_copy(point_t* src, point_t* dest) {
+    dest->x = src->x;
+    dest->y = src->y;
 }
 
 segment_t* segment_new(line_t* source_line, point_t* dp1, point_t* dp2) {
@@ -62,30 +74,61 @@ void segment_ray2seg(segment_t* seg, point_t* point) {
 void segment_print(segment_t* seg) {
     switch (seg->label) {
         case SEG_LINE:
-            break;
             printf("LINE ");
             printf("grad %f, intercept %f\n", seg->options.line.gradient,
                     seg->options.line.intercept);
             break;
         case SEG_RAY:
             printf("[[%f, %f], [%f, %f]], ", seg->dual.p1.x, 
-                   seg->dual.p1.y, seg->dual.p2.x,
+                  seg->dual.p1.y, seg->dual.p2.x,
                    seg->dual.p2.y);
-            break;
-            printf("RAY ");
-            printf("grad %f, point ", seg->options.ray.gradient);
-            point_print(&seg->options.ray.p, "");
-            printf("\n");
-            break;
         case SEG_SEG:
             printf("[[%f, %f], [%f, %f]], ", seg->dual.p1.x, 
                   seg->dual.p1.y, seg->dual.p2.x,
-                 seg->dual.p2.y);
-            printf("[[%f, %f], [%f, %f]],  ", seg->options.seg.p1.x, 
-                   seg->options.seg.p1.y, seg->options.seg.p2.x,
-                   seg->options.seg.p2.y);
-            break;
+              seg->dual.p2.y);
+          break;
     }
+}
+
+void segment_free(segment_t* seg) {
+    free(seg);
+}
+
+
+/**
+ * @brief An arbitrary compare function to facilitate insertion into BST
+ * 
+ * @param s1 
+ * @param s2 
+ * @return int 
+ */
+int segment_compare(void* s1, void* s2, void* arg) {
+    segment_t* seg1 = (segment_t*) s1;
+    segment_t* seg2 = (segment_t*) s2;
+    int comp;
+  //  printf("COMP\n");
+  //  segment_print(s1);
+  //  segment_print(s2);
+    if ((comp = ASYM_COMPARE(seg1->label, seg2->label))) {
+       // printf(" %d\n", comp);
+        return comp;}
+    if (seg1->label == SEG_LINE) {
+        if ((comp = ASYM_COMPARE(seg1->options.line.intercept,
+                                 seg2->options.line.intercept))) return comp;
+        return ASYM_COMPARE(seg1->options.line.gradient,
+                            seg2->options.line.gradient);                         
+    } else if (seg1->label == SEG_RAY) {
+        if ((comp = point_compare(&seg1->options.ray.p,
+                                  &seg2->options.ray.p))) return comp;
+        return ASYM_COMPARE(seg1->options.ray.gradient,
+                            seg2->options.ray.gradient);  
+    } else {
+        if ((comp = point_compare(&seg1->options.seg.p1,
+                                  &seg2->options.seg.p1))) return comp;
+        return point_compare(&seg1->options.seg.p2,
+                            &seg2->options.seg.p2);
+    }
+
 }
 
 double compute_parabola_value(point_t* focus, double sweep, double x) {
@@ -104,17 +147,32 @@ int compute_arc_intersection(point_t *left, point_t *right, double sweep,
     double determinant;
     circle_t circle;
     point_t mid;
-    
+
+    if (left->y == right->y && left->y == sweep) {
+        res->x = (left->x + right->x) / 2;
+        res->y = 1e+8;
+        return 0;
+    } else if (left->y == sweep) {
+        res->x = left->x;
+        res->y = compute_parabola_value(right, sweep, left->x);
+        return 0;
+    } else if (right->y == sweep) {
+        res->x = right->x;
+        res->y = compute_parabola_value(right, sweep, right->x);
+        return 0;
+    }
 
     del_yl = left->y - sweep;
     del_yr = right->y - sweep;
+    if (del_yl <= 0)  del_yl += 1e-6;
+    if (del_yr <= 0) del_yr += 1e-6;
 
     if (del_yl == del_yr) {
         mid.y = sweep;
         mid.x = (right->x + left->x) / 2;
         compute_circumcircle(left, right, &mid, &circle);
         res->x = circle.center.x;
-        res->y = circle.center.y;
+        res->y = circle.center.y;    
         return 0;
     }
 
@@ -125,7 +183,6 @@ int compute_arc_intersection(point_t *left, point_t *right, double sweep,
     b = (right->x / del_yr) + bl;
     cl = (left->x*left->x + left->y*left->y - sweep*sweep) / (2*del_yl);
     c =  cl - (right->x*right->x + right->y*right->y - sweep*sweep) / (2*del_yr);
-
     if ((determinant = b*b - 4*a*c) < 0) return -1;
     res->x = (-b + sqrt(determinant)) / (2*a);
     res->y = al*(res->x*res->x) + bl*res->x + cl;
@@ -156,6 +213,9 @@ void compute_bisector(point_t *p1, point_t *p2, line_t *res) {
     if (grad == 0) {
         res->gradient = INFINITY;
         res->intercept = midpoint.x;
+    } else if (grad == INFINITY) {
+        res->gradient = 0;
+        res->intercept = midpoint.y;
     } else {
         res->gradient = - 1 / grad;
         res->intercept = midpoint.y + (midpoint.x / grad);
@@ -185,6 +245,15 @@ int compute_circumcircle(point_t *p1, point_t *p2, point_t *p3, circle_t *res) {
     point_t center;
     int retval;
 
+
+    point_t v1, v2;
+    v1.x = p1->x - p2->x;
+    v1.y = p1->y - p2->y;
+    v2.x = p3->x - p2->x;
+    v2.y = p3->y - p2->y;
+    double ang = atan2(v2.y*v1.x - v2.x*v1.y, v1.x*v2.x + v1.y*v2.y);
+    if (ang <= 0) return -1;
+
     compute_bisector(p1, p2, &l1);
     compute_bisector(p2, p3, &l2);
     if ((retval = solve_linear(&l1, &l2, &center))) return retval;
@@ -194,11 +263,12 @@ int compute_circumcircle(point_t *p1, point_t *p2, point_t *p3, circle_t *res) {
     return 0;
 }
 
-void compute_circle_tangent(point_t *p1, point_t *p2, point_t *p3, point_t* res) {
+int compute_circle_tangent(point_t *p1, point_t *p2, point_t *p3, point_t* res) {
     circle_t circle;
-    compute_circumcircle(p1, p2, p3, &circle);
+    int retval; 
+    if ((retval = compute_circumcircle(p1, p2, p3, &circle))) return retval;
     res->x = circle.center.x;
     res->y = circle.center.y - circle.radius;
-    return;
+    return 0;
 }
 

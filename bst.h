@@ -26,14 +26,14 @@ struct bst;
 typedef struct bst bst_t;
 typedef struct node node_t;
 
-bst_t *bst_new(int (*compare_fn)(void*, void*, void*));
+bst_t *bst_new(int (*compare_fn)(void*, void*, void*), void (*free_fn)(void*));
 
-int bst_find(bst_t* tree, void* key, void** valp, node_t** nodep, void* arg);
-
+//int bst_find(bst_t* tree, void* key, void** valp, node_t** nodep, void* arg);
+int bst_rootkey(bst_t* tree, void** keyp);
 int bst_interval(bst_t* tree, void* key, void** leftp, void** rightp, void* arg);
 
 int bst_insert(bst_t* tree, void* key, void* val, void* arg);
-
+int bst_find(bst_t* tree, void* key, void** valp, void* arg);
 int bst_delete(bst_t* tree, void* key, void** valp, void* arg);
 
 void bst_print(bst_t* tree,void (*print_fn)(void*));

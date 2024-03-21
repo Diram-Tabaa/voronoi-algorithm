@@ -23,6 +23,8 @@
 #define SEG_POINT1(sg) (&sg->options.seg.p1)
 #define SEG_POINT2(sg) (&sg->options.seg.p2)
 
+#define ASYM_COMPARE(l1, l2) (2*((l1) < (l2)) + (((l1) == (l2)) - 1))
+
 struct point {
     double x;
     double y;
@@ -77,6 +79,10 @@ void segment_line2ray(segment_t* seg, point_t* point);
 
 void segment_ray2seg(segment_t* seg, point_t* point);
 
+int segment_compare(void* s1, void* s2, void* arg);
+
+void segment_free(segment_t* seg);
+
 double compute_parabola_value(point_t* focus, double sweep, double x);
 
 int compute_arc_intersection(point_t *left, point_t *right, double sweep,
@@ -88,6 +94,6 @@ void compute_midpoint(point_t *p1, point_t *p2, point_t *res);
 
 int compute_circumcircle(point_t *p1, point_t *p2, point_t *p3, circle_t *res);
 
-void compute_circle_tangent(point_t *p1, point_t *p2, point_t *p3, point_t* res);
+int compute_circle_tangent(point_t *p1, point_t *p2, point_t *p3, point_t* res);
 
 #endif 

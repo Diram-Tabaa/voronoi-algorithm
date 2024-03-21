@@ -25,6 +25,7 @@ struct node {
 struct bst {
     node_t* root;
     int (*compare_fn)(void*, void*, void*);
+    void (*free_fn)(void*);
 };  
 
 /**
@@ -52,13 +53,14 @@ node_t *node_new(void* key, void* val) {
  * @param compare_fn compare function used to compare between keys
  * @return bst_t* 
  */
-bst_t *bst_new(int (*compare_fn)(void*, void*, void*)) {
+bst_t *bst_new(int (*compare_fn)(void*, void*, void*), void (*free_fn)(void*)) {
     bst_t* tree;
     if (!(tree = malloc(sizeof(bst_t)))) {
         return NULL;
     }
     tree->root = NULL;
     tree->compare_fn = compare_fn;
+    tree->free_fn = free_fn;
     return tree;
 }
 
@@ -82,49 +84,6 @@ int node_interval(bst_t* tree, node_t* root, void* key,
     return 0;
 }
 
-/**
- * @brief 
- * 
- * @param tree 
- * @param root 
- * @param elem 
- * @param resp 
- * @param parentp 
- * @param arg 
- * @return int 
- */
-int node_find_parent(bst_t* tree, node_t* root, void* key, void** valp,
-              node_t** parentp, void* arg) {
-    int res;
-    int comp;
-
-    if (root == NULL) {
-        return -1;
-    }
-
-    /* if element is equal at root, we return 1 */
-    if ((comp = tree->compare_fn(key, root->key, arg)) == EQUAL) {
-      //  printf("key? %p\n", root->key);
-        return 1;
-    } 
-    
-    /* if the element is smaller than root, traverse left */
-    if (comp == SMALLER) {
-        res = node_find_parent(tree, root->left, key, valp, parentp, arg);
-    } else {
-        res = node_find_parent(tree, root->right, key, valp, parentp, arg);
-    }
-
-    /* if res is 1, it means that the child node is the node we are looking 
-       for, hence we are the parent */
-    if (res == 1) {
-        *valp = root->val;
-        if (parentp) *parentp = root;
-       // printf("parent ket %p\n", root->key);
-    }
-
-    return 0;
-}
 
 node_t* left_spine(node_t* root) {
     node_t* target = root;
@@ -140,6 +99,12 @@ node_t* right_spine(node_t* root) {
         target = target->right;
     }
     return target;
+}
+
+int bst_rootkey(bst_t* tree, void** keyp) {
+    if (tree->root == NULL) return -1;
+    *keyp = tree->root->key;
+    return 0;
 }
 
 int bst_interval(bst_t* tree, void* key, void** leftp, void** rightp,
@@ -165,21 +130,6 @@ int bst_interval(bst_t* tree, void* key, void** leftp, void** rightp,
     return 0;
 }
 
-int node_insert(bst_t* tree, node_t* root, void* key, void* val, void* arg) {
-    if (root == NULL) return -1;
-    int comp;
-    if ((comp = tree->compare_fn(key, root->key, arg)) == SMALLER) {
-        if (node_insert(tree, root->left, key, val, arg)) {
-            root->left = node_new(key, val);
-        }
-        
-    } else if (comp == GREATER) {
-        if (node_insert(tree, root->right, key, val, arg)) {
-            root->right = node_new(key, val);
-        } 
-    }
-    return 0;
-}
 
 int bst_insert(bst_t* tree, void* key, void* val, void* arg) {
     if (tree == NULL) return -1;
@@ -189,6 +139,7 @@ int bst_insert(bst_t* tree, void* key, void* val, void* arg) {
     } 
     node_t* target = tree->root;
     int cmp;
+
     while((cmp = tree->compare_fn(key, target->key, arg)) != EQUAL) {
         if (cmp == SMALLER) {
             if (target->left == NULL) {
@@ -205,11 +156,26 @@ int bst_insert(bst_t* tree, void* key, void* val, void* arg) {
         }
     }
     return 0;
-
-
-    return node_insert(tree, tree->root, key, val, arg);
 }
 
+int bst_find(bst_t* tree, void* key, void** valp, void* arg) {
+    node_t *target;
+    int cmp;
+    if (tree->root == NULL) return -1;
+    target = tree->root;
+
+    while (target && (cmp = tree->compare_fn(target->key, key, arg)) != EQUAL) {
+        if (cmp == GREATER) {
+            target = target->left;
+        } else {
+            target = target->right;
+        }
+    }
+
+    if (!target) return -1;
+    if (valp) *valp = target->val;
+    return 0;
+}
 
 node_t* node_union(node_t* l_tree, node_t* r_tree) {
     if (l_tree == NULL) return r_tree;
@@ -229,7 +195,7 @@ int bst_delete(bst_t* tree, void* key, void** valp, void* arg) {
     parent = tree->root;
     target = tree->root;
 
-    while ((cmp = tree->compare_fn(target->key, key, arg)) != EQUAL) {
+    while (target && (cmp = tree->compare_fn(target->key, key, arg)) != EQUAL) {
         parent = target;
         if (cmp == GREATER) {
             target = target->left;
@@ -238,13 +204,12 @@ int bst_delete(bst_t* tree, void* key, void** valp, void* arg) {
         }
     }
 
+    if (!target) return -1;
+
     if (parent == target) {
         if (valp) *valp = parent->val;
         tree->root = node_union(parent->left, parent->right);
-        return 0;
-    }
-
-    if (tree->compare_fn(parent->key, key, arg) == SMALLER) {
+    } else if (tree->compare_fn(parent->key, key, arg) == SMALLER) {
         target = parent->right;
         if (valp) *valp = target->val;
         parent->right = node_union(target->left, target->right);
@@ -254,15 +219,20 @@ int bst_delete(bst_t* tree, void* key, void** valp, void* arg) {
         parent->left = node_union(target->left, target->right);
     }
 
+    tree->free_fn(target->key);
+    free(target);
+    return 0;
 }
 
 void node_print(node_t* root, void (*print_fn)(void*)) {
     if (root == NULL) return;
     node_print(root->left, print_fn);
-    segment_print(root->val);
+    print_fn(root->key);    
     node_print(root->right, print_fn);
 }
 
 void bst_print(bst_t* tree,void (*print_fn)(void*)) {
     node_print(tree->root, print_fn);
 }
+
+void bst_free(bst_t* tree);

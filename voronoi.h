@@ -23,7 +23,7 @@
 #define CIRCLE_EVENT 1
 #define LEFT_SIDE 0
 #define RIGHT_SIDE 1
-#define EPSILON 1e-8
+#define EPSILON 1e-9
 
 #define SYMMETRIC_LEQ(a, b) (((a) > (b))*(-2) + 1) // -1 if a > b, 1 if a <= b
 #define DOUBLE2VOID(doublevar) (*((void**) &doublevar)); //can only be used with named variables
@@ -37,6 +37,7 @@ struct boundary {
 
 struct event {
     char label;
+    int tag;
     point_t sweep_event;
     struct {
         point_t* left;
@@ -57,6 +58,6 @@ event_t* new_event(char label, double x, double y, point_t* left,
 
 int event_compare(void* e1, void* e2);
 
-void compute_voronoi(pqueue_t* points);
-int main2(int argc, char** argv);
+bst_t* compute_voronoi(pqueue_t* points);
+
 #endif

@@ -22,6 +22,29 @@ struct pqueue {
     int (*compare_fn)(void*, void*);
 };
 
+int check_heap_invariant(void** heap, int idx, int size, int (*compare_fn)(void*, void*)) {
+    int cidx1, cidx2;;
+    cidx1 = 2*idx + 1;
+    cidx2 = 2*idx + 2;
+    if (idx >= size) return 1;
+    if (cidx1 < size && compare_fn(heap[idx], heap[cidx1]) == -1) {
+        printf("%d: ", idx);
+        event_print(heap[idx]);
+        printf("%d: ", cidx1);
+        event_print(heap[cidx1]);
+        return 0;
+    }
+    if (cidx2 < size && compare_fn(heap[idx], heap[cidx2]) == -1){
+        printf("%d: ", idx);
+        event_print(heap[idx]);
+        printf("%d: ", cidx2);
+        event_print(heap[cidx2]);
+        return 0;
+    } 
+    return (check_heap_invariant(heap, cidx1, size, compare_fn) &&
+            check_heap_invariant(heap, cidx2, size, compare_fn));
+}
+
 void traverse_up(void** heap, int size, int (*compare_fn)(void*, void*)) {
     int idx, parent_idx;
     void* temp;
@@ -48,7 +71,7 @@ void traverse_down(void** heap, int size, int (*compare_fn)(void*, void*)) {
     cidx1 = 1;
     cidx2 = 2;
     while (cidx1 < size && (compare_fn(heap[cidx1], heap[idx]) == 1
-           || cidx2 >= size || compare_fn(heap[cidx2], heap[idx]) == 1)) {
+           || ( cidx2 < size && compare_fn(heap[cidx2], heap[idx]) == 1))) {
         temp = heap[cidx1];
         pidx = cidx1;
         if (cidx2 < size && compare_fn(heap[cidx2], heap[cidx1]) == 1) {
@@ -88,7 +111,6 @@ pqueue_t *pqueue_new(int (*compare_fn)(void*, void*)) {
 void pqueue_print(pqueue_t* que, void (* print_fn)(void*)) {
     assert(que != NULL);
     for (int i = 0; i < que->size; i++) {
-        //printf("%p ", que->heap[i]);
         print_fn(que->heap[i]);
     }
     printf("\n");
@@ -124,8 +146,13 @@ int pqueue_insert(pqueue_t *que, void* item) {
         que->heap_size *= 2;
 
     }
+    assert(check_heap_invariant(que->heap, 0, que->size, que->compare_fn));
     que->heap[que->size++] = item;
     traverse_up(que->heap, que->size, que->compare_fn);
+    if (!check_heap_invariant(que->heap, 0, que->size, que->compare_fn)) {
+        pqueue_print(que, *event_print);
+    }
+    assert(check_heap_invariant(que->heap, 0, que->size, que->compare_fn));
     return 0;
 }
 
@@ -156,11 +183,17 @@ int pqueue_pop(pqueue_t *que, void** itemp) {
     if (que->size == 0) {
         return -1;
     }
-    int idx = 0;
-    int first_child = 2*idx + 1, second_child = 2*idx + 2;
     *itemp = que->heap[0];
+    assert(check_heap_invariant(que->heap, 0, que->size, que->compare_fn));
     que->heap[0] = que->heap[que->size-1];
     traverse_down(que->heap, que->size - 1, que->compare_fn);
     que->size--;
+    assert(check_heap_invariant(que->heap, 0, que->size, que->compare_fn));
     return 0;
+}
+
+void pqueue_free(pqueue_t *que) {
+    assert(que != NULL && que->size == 0);
+    free(que->heap);
+    free(que);
 }
