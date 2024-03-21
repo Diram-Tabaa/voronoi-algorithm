@@ -16,5 +16,5 @@ $(TARGET) : $(OBJECTS)
 clean:
 	@rm -f $(TARGET) $(OBJECTS) core
 
-voronoipy: $(PY_OBJECTS) 
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) -lpython3.10 -I/usr/include/python3.10 
+python: 
+	python3 setup.py build_ext --inplace
