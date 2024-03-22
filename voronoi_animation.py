@@ -50,7 +50,7 @@ def update(frame):
     vor, deluan = voronoi.voronoi(points)
     vor_segments, vor_rays = vor
 
-    line_segments.set_segments(delaun)
+    line_segments.set_segments(deluan)
     
     return scatter, line_segments
 
