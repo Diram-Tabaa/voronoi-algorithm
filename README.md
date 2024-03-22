@@ -23,9 +23,9 @@ import voronoi
 #pack your points as list of lists
 points = [[1.0,-1.0], [1.23, -4.5], [2.1, 4.1], [7.1, -9.0]]
 #run the vornoni algorithm 
-voronoi, delaunay = voronoi.voronoi(points)
+vor, delaunay = voronoi.voronoi(points)
 #unpack the voronoi into segments and rays 
-voronoi_segments, voronoi_rays = voronoi
+voronoi_segments, voronoi_rays = vor
 # voronoi_rays are of the form [(x_1, y_1, grad_1), ...]
 # voronoi_segments and delaunay are of the form [((x_1, y_1), (x'_1, y'_1)), ...]
 ```
